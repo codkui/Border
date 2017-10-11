@@ -1,0 +1,26 @@
+[
+    {
+        "Name": "mapping",
+        "Address": "devel.skylinuav.com",
+        "URLReg": "/work/Public/{?0}/?service={?2}.{?3}",
+        "Conn": "HTTP"
+    },
+    {
+        "Name": "station",
+        "Address": "devel.skylinuav.com",
+        "URLReg": "/work/Public/{?0}/?service={?2}.{?3}",
+        "Conn": "HTTP"
+    },
+    {
+        "Name": "gga",
+        "Address": "devel.skylinuav.com:8090",
+        "URLReg": "/GGA/sendGGA",
+        "Conn": "HTTP"
+    },
+    {
+        "Name": "file",
+        "Address": "devel.skylinuav.com",
+        "URLReg": "/work/Public/{?0}/?service={?2}.{?3}",
+        "Conn": "HTTP"
+    }
+]

@@ -1,0 +1,9 @@
+struct Person {
+	Con    string
+	Index  string
+	Server string
+	API    string
+	Token  string
+	Method string
+    Colors int
+}

@@ -1,0 +1,14 @@
+{
+    "11":{
+        "Service":"gga",
+        "Api":"/GGA/sendGGA"
+    },
+    "12":{
+        "Service":"station",
+        "Api":"/work/Public/station/?service=Info.upInfo"
+    },
+    "30":{
+        "Service":"file",
+        "Api":"/work/Public/store/?service=App.downApp&id=1"
+    }
+}
