@@ -151,11 +151,12 @@ func recvConnMsg(conn net.Conn) {
 					tempResIndex[headerDemo["localIndex"]][dataIndexInt] = true
 				}
 			} else {
-				//_, _ := strconv.Atoi(headerDemo["dataLast"])
+				//num, _ := strconv.Atoi(headerDemo["dataLast"])
 				dataIndexList := make(map[int]bool)
 				//headerDemo["dataIndex"] = make(map[int]bool, 5)
 				tempResHeader[headerDemo["localIndex"]] = headerDemo
 				tempResIndex[headerDemo["localIndex"]] = dataIndexList
+				tempResData[headerDemo["localIndex"]] = make(map[int][]byte)
 				tempResData[headerDemo["localIndex"]][dataIndexInt] = relData
 				tempResIndex[headerDemo["localIndex"]][dataIndexInt] = true
 			}
@@ -198,7 +199,7 @@ func recvConnMsg(conn net.Conn) {
 					continue
 					break
 				}
-
+				fmt.Println(decodeData)
 				useData.API = headerDemo["APICode"]
 				useData.Header = headerDemo
 				useData.Data = decodeData

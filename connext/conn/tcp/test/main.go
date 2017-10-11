@@ -17,7 +17,7 @@ func main() {
 	// c := public.BytesToInt64(b)
 	// fmt.Println(c)
 	// return
-	conn, err := net.Dial("tcp", "test.skylinuav.com:8096")
+	conn, err := net.Dial("tcp", "127.0.0.1:8096")
 	demo := map[string]interface{}{"GGA": "$GPGGA,000001,3112.518576,N,12127.901251,E,1,8,1,0,M,-32,M,3,0*4B"}
 	encodeData, _ := msgpack.Marshal(demo)
 	respData := []byte{}
@@ -26,7 +26,7 @@ func main() {
 	lenByte := public.Int32ToBytes(int32(len(encodeData)))
 	typeByte := public.Int32ToBytes(int32(1))
 	dataIndex := public.Int32ToBytes(int32(0))
-	dataLast := public.Int32ToBytes(int32(0))
+	dataLast := public.Int32ToBytes(int32(1))
 	//fmt.Println(lenByte)
 	//fmt.Println(public.BytesToInt32(lenByte))
 
@@ -52,11 +52,12 @@ func main() {
 	go rev(conn)
 	for {
 		a++
-		if a%1000 == 0 {
-			fmt.Println("send")
-			fmt.Println(a)
-		}
-		time.Sleep(10000000000)
+		//if a%1000 == 0 {
+		fmt.Println("send")
+		fmt.Println(a)
+		fmt.Println(respData)
+		//}
+		time.Sleep(2000000000)
 
 		conn.Write(respData)
 
