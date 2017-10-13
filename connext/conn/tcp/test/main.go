@@ -2,12 +2,11 @@ package main
 
 import (
 	"NSnow/public"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
-
-	"github.com/vmihailenco/msgpack"
 )
 
 func main() {
@@ -19,12 +18,12 @@ func main() {
 	// return
 	conn, err := net.Dial("tcp", "127.0.0.1:8096")
 	demo := map[string]interface{}{"GGA": "$GPGGA,000001,3112.518576,N,12127.901251,E,1,8,1,0,M,-32,M,3,0*4B"}
-	encodeData, _ := msgpack.Marshal(demo)
+	encodeData, _ := json.Marshal(demo)
 	respData := []byte{}
 	apiByte := public.Int32ToBytes(int32(5))
 	indexByte := public.Int32ToBytes(int32(3))
 	lenByte := public.Int32ToBytes(int32(len(encodeData)))
-	typeByte := public.Int32ToBytes(int32(1))
+	typeByte := public.Int32ToBytes(int32(2))
 	dataIndex := public.Int32ToBytes(int32(0))
 	dataLast := public.Int32ToBytes(int32(1))
 	//fmt.Println(lenByte)
@@ -81,7 +80,7 @@ func rev(conn net.Conn) {
 			fmt.Println(b)
 		}
 		dataLen = public.BytesToInt32(buff[8:12])
-		fmt.Println(buff[8:12])
+		//fmt.Println(buff[8:12])
 		fmt.Println(dataLen)
 		if dataLen > 0 {
 			relData := make([]byte, int(dataLen))
@@ -97,7 +96,7 @@ func rev(conn net.Conn) {
 				//continue
 			}
 			var decodeData interface{}
-			_ = msgpack.Unmarshal(relData[0:n], &decodeData)
+			_ = json.Unmarshal(relData[0:n], &decodeData)
 			fmt.Println("接收到数据长度：" + strconv.Itoa(int(dataLen)))
 			fmt.Println("接收到数据真实长度：" + strconv.Itoa(n))
 			fmt.Println(relData[:n])

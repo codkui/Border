@@ -1,11 +1,14 @@
 package tcp
 
-import "net"
-import "fmt"
-import "NSnow/public"
-import "strconv"
-import "encoding/json"
-import "github.com/vmihailenco/msgpack"
+import (
+	"NSnow/public"
+	"encoding/json"
+	"fmt"
+	"net"
+	"strconv"
+
+	"github.com/vmihailenco/msgpack"
+)
 
 /*
 系统占用码
@@ -22,6 +25,14 @@ var InputChan chan public.UseType
 var OutputChan map[string]chan interface{}
 
 var maxConnIndex int64 = 1
+
+var resCode int32 = 1
+var zeroLen int32 = 0
+var restCode int32 = 2
+var dataType int32 = 1
+var dataIndex int32 = 0
+var dataLast int32 = 1
+var maxFDdataLen int = 512
 
 func init() {
 	InputChan = make(chan public.UseType, 3000)
@@ -62,12 +73,7 @@ func recvConnMsg(conn net.Conn) {
 	headerDemo := make(map[string]string)
 	var dataLen int32
 	a := 1
-	var resCode int32 = 1
-	var zeroLen int32 = 0
-	var restCode int32 = 2
-	var dataType int32 = 1
-	var dataIndex int32 = 0
-	var dataLast int32 = 0
+
 	useData := public.UseType{Index: index, Con: "TCP"}
 	//a := 1
 	defer func() {
@@ -142,6 +148,7 @@ func recvConnMsg(conn net.Conn) {
 			headerDemo["localIndex"] = strconv.Itoa(int(localIndex))
 			dataIndexInt := int(dataIndex)
 			headerDemo["dataLast"] = strconv.Itoa(int(dataLast))
+			headerDemo["encode"] = strconv.Itoa(int(dataType))
 
 			//thisHeader, _ := tempResHeader[headerDemo["localIndex"]]["dataIndex"].(map[int]bool)
 			if _, ok := tempResData[headerDemo["localIndex"]]; ok {
@@ -207,6 +214,19 @@ func recvConnMsg(conn net.Conn) {
 			}
 
 			//conn.Write(allBuff)
+
+		} else {
+			switch APICode {
+			case restCode:
+				restAsk := public.RestAskType{localIndex, dataIndex, dataLast}
+
+				c <- restAsk
+				break
+			case resCode:
+				break
+			default:
+				break
+			}
 		}
 		// n, err := conn.Read(buf)
 
@@ -232,6 +252,8 @@ func loadMsg() {}
 
 func ResponseData(conn net.Conn, c chan interface{}) {
 	var respDataDemo []byte
+	tempDataS := make(map[int32]map[int][]byte)
+	tempHeaderS := make(map[int32][]byte)
 	for {
 		respDataDemo = make([]byte, 0)
 		data, isClose := <-c
@@ -242,29 +264,91 @@ func ResponseData(conn net.Conn, c chan interface{}) {
 		}
 		dataTCP, ok := data.(public.TCPType)
 		if ok != true {
+			//如果是重发请求，进行处理
+			switch v := data.(type) {
+			case public.RestAskType:
+
+				sendHeader, ok := tempHeaderS[v.Index]
+				dataAllNum := len(tempDataS[v.Index])
+				if ok == false {
+					continue
+				}
+				i := int(v.MsgIndex)
+				if int(i) > dataAllNum {
+					continue
+				}
+				sliceLen := public.Int32ToBytes(int32(len(tempDataS[v.Index][i])))
+				for n := 0; n < 4; n++ {
+					sendHeader[8+n] = sliceLen[n]
+				}
+				sliceIndex := public.Int32ToBytes(int32(i))
+				for n := 0; n < 4; n++ {
+					sendHeader[16+n] = sliceIndex[n]
+				}
+
+				sendHeader = append(sendHeader, tempDataS[v.Index][i]...)
+
+				fmt.Println(sendHeader)
+				//restData, _ := msgpack.Marshal(dataTCP)
+				conn.Write(sendHeader)
+				break
+			default:
+				break
+			}
 			continue
+		} else {
+
+			//发送数据，拉入缓存并进行顺序发送
+			var jsonStr interface{}
+			if v, ok := dataTCP.Data.(string); ok {
+				err := json.Unmarshal([]byte(v), &jsonStr)
+				fmt.Println(jsonStr)
+				if err != nil {
+					jsonStr = dataTCP.Data
+					// fmt.Println("json解析错误")
+					// fmt.Println(err)
+					// continue
+				}
+				//这里序列化方式写死了，后期需要改写成自动适配访问的序列化方式
+				dataTCPData, _ := json.Marshal(jsonStr)
+				tempDataOne := make(map[int][]byte)
+				dataAllNum := int(len(dataTCPData) / maxFDdataLen)
+				if len(dataTCPData)%maxFDdataLen > 0 {
+					dataAllNum++
+				}
+				for i := 0; i < dataAllNum-1; i++ {
+					tempDataOne[i] = dataTCPData[i*maxFDdataLen : (i+1)*maxFDdataLen]
+				}
+				tempDataOne[dataAllNum-1] = dataTCPData[(dataAllNum-1)*maxFDdataLen:]
+				tempDataS[dataTCP.Index] = tempDataOne
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(dataTCP.API)...)
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(dataTCP.Index)...)
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(len(dataTCPData)))...)
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(2))...)
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(0))...)
+				respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(dataAllNum))...)
+				tempHeaderS[dataTCP.API] = respDataDemo
+
+				sendHeader := respDataDemo
+				for i := 0; i < dataAllNum; i++ {
+					sliceLen := public.Int32ToBytes(int32(len(tempDataOne[i])))
+					for n := 0; n < 4; n++ {
+						sendHeader[8+n] = sliceLen[n]
+					}
+					sliceIndex := public.Int32ToBytes(int32(i))
+					for n := 0; n < 4; n++ {
+						sendHeader[16+n] = sliceIndex[n]
+					}
+
+					sendHeader = append(sendHeader, tempDataOne[i]...)
+				}
+
+				fmt.Println(sendHeader)
+				//restData, _ := msgpack.Marshal(dataTCP)
+				conn.Write(sendHeader)
+			}
 		}
 		fmt.Println("通道正常")
-		var jsonStr interface{}
-		if v, ok := dataTCP.Data.(string); ok {
-			err := json.Unmarshal([]byte(v), &jsonStr)
-			fmt.Println(jsonStr)
-			if err != nil {
-				jsonStr = dataTCP.Data
-				// fmt.Println("json解析错误")
-				// fmt.Println(err)
-				// continue
-			}
-			dataTCPData, _ := msgpack.Marshal(jsonStr)
-			respDataDemo = append(respDataDemo, public.Int32ToBytes(dataTCP.API)...)
-			respDataDemo = append(respDataDemo, public.Int32ToBytes(dataTCP.Index)...)
-			respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(len(dataTCPData)))...)
-			respDataDemo = append(respDataDemo, public.Int32ToBytes(int32(1))...)
-			respDataDemo = append(respDataDemo, dataTCPData...)
-			fmt.Println(respDataDemo)
-			//restData, _ := msgpack.Marshal(dataTCP)
-			conn.Write(respDataDemo)
-		}
 
 	}
 }
