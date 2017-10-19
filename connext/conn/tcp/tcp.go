@@ -18,6 +18,9 @@ import (
 4
 */
 
+/*
+GOOS=linux GOARCH=amd64 go build 交叉编译
+*/
 //InputChan 接收的队列
 var InputChan chan public.UseType
 
@@ -32,7 +35,7 @@ var restCode int32 = 2
 var dataType int32 = 1
 var dataIndex int32 = 0
 var dataLast int32 = 1
-var maxFDdataLen int = 512
+var maxFDdataLen int = 102400000
 
 func init() {
 	InputChan = make(chan public.UseType, 3000)
@@ -68,21 +71,25 @@ func recvConnMsg(conn net.Conn) {
 	tempResHeader := make(map[string]map[string]string)
 	tempResIndex := make(map[string]map[int]bool)
 	OutputChan[index] = c
-	buff := make([]byte, 24)
+	
 	allBuff := make([]byte, 0)
 	headerDemo := make(map[string]string)
 	var dataLen int32
 	a := 1
-
+	buff := make([]byte, 24)
 	useData := public.UseType{Index: index, Con: "TCP"}
 	//a := 1
 	defer func() {
+		if err:=recover();err!=nil{
+            fmt.Println(err) // 这里的err其实就是panic传入的内容，55
+        }
 		delete(OutputChan, index)
 		close(c)
 		conn.Close()
 	}()
 	go ResponseData(conn, c)
 	for {
+		buff = make([]byte, 24)
 		i, err := conn.Read(buff)
 		allBuff = make([]byte, 0)
 
@@ -109,8 +116,12 @@ func recvConnMsg(conn net.Conn) {
 
 		//return
 		if dataLen > 0 {
+			if dataLen>int32(2048*1024){
+				dataLen=int32(2048*1024)
+			}
 			relData := make([]byte, int(dataLen))
 			n, err := conn.Read(relData)
+			fmt.Println(relData)
 			if err != nil {
 				fmt.Println("conn closed")
 				return
@@ -124,12 +135,12 @@ func recvConnMsg(conn net.Conn) {
 
 			fmt.Println("接收到数据长度：" + strconv.Itoa(n))
 			//fmt.Println(decodeData)
-			allBuff = append(allBuff, public.Int32ToBytes(resCode)...)
-			allBuff = append(allBuff, buff[4:8]...)
-			allBuff = append(allBuff, public.Int32ToBytes(zeroLen)...)
-			allBuff = append(allBuff, buff[12:24]...)
-			//fmt.Println(allBuff)
-			conn.Write(allBuff)
+			// allBuff = append(allBuff, public.Int32ToBytes(resCode)...)
+			// allBuff = append(allBuff, buff[4:8]...)
+			// allBuff = append(allBuff, public.Int32ToBytes(zeroLen)...)
+			// allBuff = append(allBuff, buff[12:24]...)
+			// //fmt.Println(allBuff)
+			// conn.Write(allBuff)
 			// var canReadData interface{}
 			// msgpack.Unmarshal(relData, &canReadData)
 			// useDataData := make(map[string][1]interface{})
@@ -207,9 +218,22 @@ func recvConnMsg(conn net.Conn) {
 					break
 				}
 				fmt.Println(decodeData)
+				//这里进行单数据转数组的操作
+				mapv,ok:=decodeData.(map[string]interface{})
+				if !ok{
+					continue
+				}
+				sample:=[1]interface{}{}
+				for k,v :=range mapv{
+					
+					sample[0]=v
+					mapv[k]=sample
+				}
+				fmt.Println(sample)
+				fmt.Println(mapv)
 				useData.API = headerDemo["APICode"]
 				useData.Header = headerDemo
-				useData.Data = decodeData
+				useData.Data = mapv
 				InputChan <- useData
 			}
 

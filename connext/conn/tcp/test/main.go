@@ -16,7 +16,8 @@ func main() {
 	// c := public.BytesToInt64(b)
 	// fmt.Println(c)
 	// return
-	conn, err := net.Dial("tcp", "127.0.0.1:8096")
+	conn, err := net.Dial("tcp", "devel.skylinuav.com:8096")
+	//conn, err := net.Dial("tcp", "127.0.0.1:8096")
 	demo := map[string]interface{}{"GGA": "$GPGGA,000001,3112.518576,N,12127.901251,E,1,8,1,0,M,-32,M,3,0*4B"}
 	encodeData, _ := json.Marshal(demo)
 	respData := []byte{}
@@ -56,7 +57,7 @@ func main() {
 		fmt.Println(a)
 		fmt.Println(respData)
 		//}
-		time.Sleep(2000000000)
+		time.Sleep(1000000000)
 
 		conn.Write(respData)
 
@@ -83,6 +84,9 @@ func rev(conn net.Conn) {
 		//fmt.Println(buff[8:12])
 		fmt.Println(dataLen)
 		if dataLen > 0 {
+			if dataLen>int32(2048*1024){
+				dataLen=int32(2048*1024)
+			}
 			relData := make([]byte, int(dataLen))
 			n, err := conn.Read(relData)
 			if err != nil {
